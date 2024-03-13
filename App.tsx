@@ -5,55 +5,19 @@
  * @format
  */
 
+import {Canvas, Circle, Fill} from '@shopify/react-native-skia';
 import React from 'react';
-import type {PropsWithChildren} from 'react';
 import {
   SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
-  Text,
   useColorScheme,
-  View,
+  useWindowDimensions,
 } from 'react-native';
+import {Gesture, GestureDetector} from 'react-native-gesture-handler';
+import {useSharedValue, withDecay} from 'react-native-reanimated';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+import {Colors} from 'react-native/Libraries/NewAppScreen';
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
@@ -62,36 +26,34 @@ function App(): React.JSX.Element {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
 
+  const {width} = useWindowDimensions();
+  const leftBoundary = 0;
+  const rightBoundary = width;
+  const translateX = useSharedValue(width / 2);
+
+  const gesture = Gesture.Pan()
+    .onChange(e => {
+      translateX.value += e.changeX;
+    })
+    .onEnd(e => {
+      translateX.value = withDecay({
+        velocity: e.velocityX,
+        clamp: [leftBoundary, rightBoundary],
+      });
+    });
+
   return (
     <SafeAreaView style={backgroundStyle}>
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
         backgroundColor={backgroundStyle.backgroundColor}
       />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
+      <GestureDetector gesture={gesture}>
+        <Canvas style={{flex: 1}}>
+          <Fill color="white" />
+          <Circle cx={translateX} cy={40} r={20} color="#3E3E" />
+        </Canvas>
+      </GestureDetector>
     </SafeAreaView>
   );
 }

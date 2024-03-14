@@ -1,80 +1,70 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
-import {Canvas, Circle, Fill} from '@shopify/react-native-skia';
-import React from 'react';
 import {
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  useColorScheme,
-  useWindowDimensions,
-} from 'react-native';
-import {Gesture, GestureDetector} from 'react-native-gesture-handler';
-import {useSharedValue, withDecay} from 'react-native-reanimated';
+  Canvas,
+  Path,
+  SkCanvas,
+  SkPath,
+  Skia,
+  TouchInfo,
+  useTouchHandler,
+} from '@shopify/react-native-skia';
+import React, {useCallback, useRef, useState} from 'react';
+import {StyleSheet} from 'react-native';
 
-import {Colors} from 'react-native/Libraries/NewAppScreen';
+export default () => {
+  const [paths, setPaths] = useState<SkPath[]>([]);
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
-
-  const {width} = useWindowDimensions();
-  const leftBoundary = 0;
-  const rightBoundary = width;
-  const translateX = useSharedValue(width / 2);
-
-  const gesture = Gesture.Pan()
-    .onChange(e => {
-      translateX.value += e.changeX;
-    })
-    .onEnd(e => {
-      translateX.value = withDecay({
-        velocity: e.velocityX,
-        clamp: [leftBoundary, rightBoundary],
-      });
+  const onDrawingStart = useCallback((touchInfo: TouchInfo) => {
+    setPaths(old => {
+      const {x, y} = touchInfo;
+      const newPath = Skia.Path.Make();
+      newPath.moveTo(x, y);
+      return [...old, newPath];
     });
+  }, []);
+
+  const onDrawingActive = useCallback((touchInfo: TouchInfo) => {
+    setPaths(currentPaths => {
+      const {x, y} = touchInfo;
+      const currentPath = currentPaths[currentPaths.length - 1];
+      const lastPoint = currentPath.getLastPt();
+      const xMid = (lastPoint.x + x) / 2;
+      const yMid = (lastPoint.y + y) / 2;
+
+      currentPath.quadTo(lastPoint.x, lastPoint.y, xMid, yMid);
+      return [...currentPaths.slice(0, currentPaths.length - 1), currentPath];
+    });
+  }, []);
+
+  const touchHandler = useTouchHandler(
+    {
+      onActive: onDrawingActive,
+      onStart: onDrawingStart,
+    },
+    [onDrawingActive, onDrawingStart],
+  );
+
+  console.log('path', paths.length);
+
+  const ctx = useRef<SkCanvas>();
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <GestureDetector gesture={gesture}>
-        <Canvas style={{flex: 1}}>
-          <Fill color="white" />
-          <Circle cx={translateX} cy={40} r={20} color="#3E3E" />
-        </Canvas>
-      </GestureDetector>
-    </SafeAreaView>
+    <Canvas style={style.container} onTouch={touchHandler} ref={ctx}>
+      {paths.map((path, index) => (
+        <Path
+          key={index}
+          path={path}
+          color={'black'}
+          style={'stroke'}
+          strokeWidth={3.5}
+        />
+      ))}
+    </Canvas>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
+const style = StyleSheet.create({
+  container: {
+    flex: 1,
+    width: '100%',
   },
 });
-
-export default App;
